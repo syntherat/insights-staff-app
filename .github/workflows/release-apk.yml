@@ -1,0 +1,63 @@
+name: Build and Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter pub get
+        working-directory: arcade-staff-flutter
+        run: flutter pub get
+
+      - name: Build ARM64 release APK
+        working-directory: arcade-staff-flutter
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Prepare versioned APK filename
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="manual-${GITHUB_RUN_NUMBER}"
+          fi
+          OUT_FILE="insights-staff-${TAG}-arm64.apk"
+          cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-release.apk "dist/${OUT_FILE}"
+          echo "APK_FILE=dist/${OUT_FILE}" >> "$GITHUB_ENV"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: insights-staff-app-arm64-apk
+          path: ${{ env.APK_FILE }}
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.APK_FILE }}
+          generate_release_notes: true
