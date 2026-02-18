@@ -46,13 +46,15 @@ jobs:
             TAG="manual-${GITHUB_RUN_NUMBER}"
           fi
           OUT_FILE="insights-staff-${TAG}-arm64.apk"
+          ARTIFACT_NAME="insights-staff-${TAG}-arm64"
           cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-release.apk "dist/${OUT_FILE}"
           echo "APK_FILE=dist/${OUT_FILE}" >> "$GITHUB_ENV"
+          echo "APK_ARTIFACT_NAME=${ARTIFACT_NAME}" >> "$GITHUB_ENV"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: insights-staff-app-arm64-apk
+          name: ${{ env.APK_ARTIFACT_NAME }}
           path: ${{ env.APK_FILE }}
 
       - name: Publish GitHub Release (on tag)
