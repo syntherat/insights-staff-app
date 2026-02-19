@@ -44,9 +44,45 @@ jobs:
         working-directory: arcade-staff-flutter
         run: flutter pub get
 
-      - name: Build ARM64 release APK
+      - name: Verify signing secrets
+        shell: bash
+        run: |
+          if [[ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]]; then
+            echo "Missing ANDROID_KEYSTORE_BASE64 secret" >&2
+            exit 1
+          fi
+          if [[ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ]]; then
+            echo "Missing ANDROID_KEYSTORE_PASSWORD secret" >&2
+            exit 1
+          fi
+          if [[ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]]; then
+            echo "Missing ANDROID_KEY_PASSWORD secret" >&2
+            exit 1
+          fi
+          if [[ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ]]; then
+            echo "Missing ANDROID_KEY_ALIAS secret" >&2
+            exit 1
+          fi
+
+      - name: Decode release keystore
+        shell: bash
+        run: |
+          mkdir -p arcade-staff-flutter/android/keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > arcade-staff-flutter/android/keystore/release.jks
+
+      - name: Write key.properties
+        shell: bash
+        run: |
+          cat > arcade-staff-flutter/android/key.properties <<EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=keystore/release.jks
+          EOF
+
+      - name: Build universal release APK
         working-directory: arcade-staff-flutter
-        run: flutter build apk --release --target-platform android-arm64
+        run: flutter build apk --release --target-platform android-arm,android-arm64,android-x64
 
       - name: Prepare versioned APK filename
         id: prep_apk
@@ -58,8 +94,8 @@ jobs:
           else
             TAG="manual-${GITHUB_RUN_NUMBER}"
           fi
-          OUT_FILE="insights-staff-${TAG}-arm64.apk"
-          ARTIFACT_NAME="insights-staff-${TAG}-arm64"
+          OUT_FILE="insights-staff-${TAG}-universal.apk"
+          ARTIFACT_NAME="insights-staff-${TAG}-universal"
           cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-release.apk "dist/${OUT_FILE}"
           echo "apk_file=dist/${OUT_FILE}" >> "$GITHUB_OUTPUT"
           echo "artifact_name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"

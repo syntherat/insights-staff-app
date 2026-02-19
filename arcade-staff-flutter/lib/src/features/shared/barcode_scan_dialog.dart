@@ -5,9 +5,13 @@ class BarcodeScanDialog extends StatefulWidget {
   const BarcodeScanDialog({
     super.key,
     this.title = 'Scan code',
+    this.continuousMode = false,
+    this.onScan,
   });
 
   final String title;
+  final bool continuousMode;
+  final Future<String?> Function(String code)? onScan;
 
   @override
   State<BarcodeScanDialog> createState() => _BarcodeScanDialogState();
@@ -17,6 +21,9 @@ class _BarcodeScanDialogState extends State<BarcodeScanDialog>
     with SingleTickerProviderStateMixin {
   bool _done = false;
   bool _torchOn = false;
+  bool _processing = false;
+  String? _lastMessage;
+  bool _lastSuccess = true;
   late final MobileScannerController _controller;
   late final AnimationController _scanLineController;
 
@@ -47,44 +54,74 @@ class _BarcodeScanDialogState extends State<BarcodeScanDialog>
           MobileScanner(
             controller: _controller,
             fit: BoxFit.cover,
-            onDetect: (capture) {
-              if (_done) return;
+            onDetect: (capture) async {
+              if (_done || _processing) return;
               final raw = capture.barcodes.firstOrNull?.rawValue;
               if (raw == null || raw.trim().isEmpty) return;
-              _done = true;
-              Navigator.of(context).pop(raw.trim());
+
+              if (!widget.continuousMode) {
+                _done = true;
+                Navigator.of(context).pop(raw.trim());
+                return;
+              }
+
+              // Continuous mode
+              setState(() => _processing = true);
+              try {
+                final result = await widget.onScan?.call(raw.trim());
+                if (!mounted) return;
+                setState(() {
+                  _lastMessage = result ?? 'Scanned successfully';
+                  _lastSuccess =
+                      result == null || !result.toLowerCase().contains('error');
+                  _processing = false;
+                });
+                await Future.delayed(const Duration(milliseconds: 1500));
+                if (!mounted) return;
+                setState(() => _lastMessage = null);
+              } catch (e) {
+                if (!mounted) return;
+                setState(() {
+                  _lastMessage = e.toString();
+                  _lastSuccess = false;
+                  _processing = false;
+                });
+                await Future.delayed(const Duration(milliseconds: 2000));
+                if (!mounted) return;
+                setState(() => _lastMessage = null);
+              }
             },
           ),
           AnimatedBuilder(
             animation: _scanLineController,
             builder: (context, _) => _ScannerOverlay(
-              torchOn: _torchOn,
-              onToggleTorch: () async {
-                await _controller.toggleTorch();
-                if (!mounted) return;
-                setState(() => _torchOn = !_torchOn);
-              },
               scanProgress: _scanLineController.value,
+              message: _lastMessage,
+              isSuccess: _lastSuccess,
+              isProcessing: _processing,
             ),
           ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton.filledTonal(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.chevron_left),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  IconButton.filledTonal(
+                    onPressed: () async {
+                      await _controller.toggleTorch();
+                      if (!mounted) return;
+                      setState(() => _torchOn = !_torchOn);
+                    },
+                    icon: Icon(
+                      _torchOn
+                          ? Icons.flash_on_rounded
+                          : Icons.flash_off_rounded,
+                      color: _torchOn ? const Color(0xFFFF9B4A) : null,
                     ),
                   ),
                 ],
@@ -99,14 +136,16 @@ class _BarcodeScanDialogState extends State<BarcodeScanDialog>
 
 class _ScannerOverlay extends StatelessWidget {
   const _ScannerOverlay({
-    required this.torchOn,
-    required this.onToggleTorch,
     required this.scanProgress,
+    this.message,
+    this.isSuccess = true,
+    this.isProcessing = false,
   });
 
-  final bool torchOn;
-  final VoidCallback onToggleTorch;
   final double scanProgress;
+  final String? message;
+  final bool isSuccess;
+  final bool isProcessing;
 
   @override
   Widget build(BuildContext context) {
@@ -114,9 +153,10 @@ class _ScannerOverlay extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final height = constraints.maxHeight;
-        final frameSize = width.clamp(230.0, 340.0).toDouble();
+        // Make frame more responsive for small screens
+        final frameSize = (width * 0.75).clamp(200.0, 340.0).toDouble();
         final left = (width - frameSize) / 2;
-        final top = (height - frameSize) / 2.5;
+        final top = (height - frameSize) / 2.4;
         final scanLineTop = top + 8 + (frameSize - 16) * scanProgress;
 
         return Stack(
@@ -172,42 +212,77 @@ class _ScannerOverlay extends StatelessWidget {
               ),
             ),
             Positioned(
-              top: top + frameSize + 14,
-              left: 0,
-              right: 0,
+              top: top + frameSize + 20,
+              left: 16,
+              right: 16,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton.filledTonal(
-                      onPressed: onToggleTorch,
-                      icon: Icon(
-                        torchOn
-                            ? Icons.flash_on_rounded
-                            : Icons.flash_off_rounded,
-                        color: torchOn ? const Color(0xFFFF9B4A) : Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0x33FFFFFF)),
-                      ),
-                      child: const Text(
-                        'Scan QR or barcode inside the square',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: message != null
+                      ? Container(
+                          key: ValueKey(message),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSuccess
+                                ? Colors.green.withValues(alpha: 0.9)
+                                : Colors.red.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isSuccess ? Icons.check_circle : Icons.error,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  message!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Container(
+                          key: const ValueKey('default'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0x33FFFFFF)),
+                          ),
+                          child: Text(
+                            isProcessing
+                                ? 'Processing...'
+                                : 'Put the code into the frame',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),

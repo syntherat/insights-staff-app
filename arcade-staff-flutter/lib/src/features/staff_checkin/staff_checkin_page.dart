@@ -47,18 +47,30 @@ class _StaffCheckinPageState extends ConsumerState<StaffCheckinPage> {
   }
 
   Future<void> _scanViaCamera() async {
-    final value = await Navigator.of(context).push<String>(
+    await Navigator.of(context).push<String>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => const BarcodeScanDialog(title: 'Scan attendance code'),
+        builder: (_) => BarcodeScanDialog(
+          title: 'Scan attendance code',
+          continuousMode: true,
+          onScan: (code) async {
+            final regNo = code.trim().toUpperCase();
+            try {
+              final api = ref.read(apiClientProvider);
+              final data =
+                  await api.postJson('/staff-checkin/scan', {'reg_no': regNo});
+              final day = data['day'] as Map<String, dynamic>?;
+              final member = data['member'] as Map<String, dynamic>?;
+              final name = member?['name'] ?? regNo;
+              final date = _fmtDate(day?['checkin_date']);
+              return 'Checked in $name for $date';
+            } catch (e) {
+              return 'Error: ${_friendlyError(e)}';
+            }
+          },
+        ),
       ),
     );
-    if (!mounted) return;
-    if (value == null || value.trim().isEmpty) return;
-    setState(() {
-      _regNoCtrl.text = value.trim().toUpperCase();
-    });
-    await _markCheckin();
   }
 
   Drawer _buildDrawer() {

@@ -43,7 +43,7 @@ class _ArcadeGatePageState extends ConsumerState<ArcadeGatePage> {
       if (!mounted) return;
       setState(() {
         _item = item == null ? null : Map<String, dynamic>.from(item);
-        _recent = recent;
+        _recent = recent.take(6).toList();
       });
       if (item == null) {
         ScaffoldMessenger.of(context)
@@ -66,6 +66,44 @@ class _ArcadeGatePageState extends ConsumerState<ArcadeGatePage> {
     if (value == null || value.trim().isEmpty) return;
     _codeCtrl.text = value.trim();
     await _lookup(value);
+  }
+
+  Widget _checkinStatusLine(String? status) {
+    final raw = (status ?? '-').toString();
+    final normalized = raw.toUpperCase();
+    Color bgColor;
+
+    if (normalized.contains('CHECKED')) {
+      bgColor = const Color(0xFF166534);
+    } else if (normalized.contains('REJECT')) {
+      bgColor = const Color(0xFF991B1B);
+    } else if (normalized.contains('NOT_CHECKED') ||
+        normalized.contains('PENDING')) {
+      bgColor = const Color(0xFFB45309);
+    } else {
+      bgColor = const Color(0xFF374151);
+    }
+
+    return Row(
+      children: [
+        const Text('Checkin: '),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            raw.replaceAll('_', ' '),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _approve() async {
@@ -218,7 +256,7 @@ class _ArcadeGatePageState extends ConsumerState<ArcadeGatePage> {
                         const SizedBox(height: 8),
                         Text('Reg No: ${item['reg_no'] ?? '-'}'),
                         Text('Wallet: ${item['wallet_code'] ?? '-'}'),
-                        Text('Checkin: ${item['checkin_status'] ?? '-'}'),
+                        _checkinStatusLine(item['checkin_status']?.toString()),
                         Text('Tokens: ${item['balance'] ?? 0}'),
                         Text('Tickets: ${item['reward_points_balance'] ?? 0}'),
                         const SizedBox(height: 10),

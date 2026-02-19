@@ -109,6 +109,12 @@ class ClubAppBarTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 360;
+    final logoSize = isCompact ? 22.0 : 26.0;
+    final gap = isCompact ? 6.0 : 8.0;
+    final maxTitleWidth = width * (isCompact ? 0.52 : 0.62);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -116,18 +122,21 @@ class ClubAppBarTitle extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           child: Image.asset(
             clubLogoAsset,
-            width: 26,
-            height: 26,
+            width: logoSize,
+            height: logoSize,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) =>
-                const Icon(Icons.shield_outlined, size: 22),
+                Icon(Icons.shield_outlined, size: logoSize - 4),
           ),
         ),
-        const SizedBox(width: 8),
-        Flexible(
+        SizedBox(width: gap),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxTitleWidth),
           child: Text(
             title,
             overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
       ],

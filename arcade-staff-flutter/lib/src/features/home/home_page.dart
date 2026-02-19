@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,11 +18,22 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   List<_AttendanceDayView> _attendance = const [];
   bool _loadingAttendance = false;
+  Timer? _attendanceRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadAttendance();
+    _attendanceRefreshTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _loadAttendance(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _attendanceRefreshTimer?.cancel();
+    super.dispose();
   }
 
   DateTime? _parseDate(dynamic value) {
@@ -83,7 +96,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
         if (checkedAt != null) {
           status = 'Present';
-          tone = const Color(0xFFFF9B4A);
+          tone = const Color.fromARGB(255, 7, 196, 0);
           details = 'Marked at ${_fmtDateTime(checkedAt)}';
         } else if (dayStart.isBefore(todayStart)) {
           status = 'Absent';
@@ -193,8 +206,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (access?.canGate == true)
                 _menuTile(
                   icon: Icons.login_rounded,
-                  title: 'Arcade Gate',
-                  subtitle: 'Temporary event module',
+                  title: 'VRCADE Gate',
+                  subtitle: 'Checkin Participants',
                   onTap: () {
                     Navigator.pop(context);
                     context.push('/arcade/gate');
@@ -203,8 +216,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (access?.canGame == true)
                 _menuTile(
                   icon: Icons.sports_esports_outlined,
-                  title: 'Arcade Game',
-                  subtitle: 'Temporary event module',
+                  title: 'VRCADE Games',
+                  subtitle: 'Manage games',
                   onTap: () {
                     Navigator.pop(context);
                     context.push('/arcade/game');
@@ -213,8 +226,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (access?.canPrize == true)
                 _menuTile(
                   icon: Icons.redeem_outlined,
-                  title: 'Arcade Prize',
-                  subtitle: 'Temporary event module',
+                  title: 'VRCADE Prize',
+                  subtitle: 'Prize Redeem Counter',
                   onTap: () {
                     Navigator.pop(context);
                     context.push('/arcade/prize');
@@ -224,7 +237,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               _menuTile(
                 icon: Icons.logout,
                 title: 'Logout',
-                subtitle: 'Sign out of staff app',
+                subtitle: 'Sign out',
                 onTap: () async {
                   Navigator.pop(context);
                   await ref.read(authControllerProvider.notifier).logout();
@@ -276,7 +289,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 style: Theme.of(context).textTheme.titleLarge),
                             const SizedBox(height: 3),
                             Text(
-                              'Insights Club staff dashboard with attendance overview and quick access from sidebar.',
+                              'Insights Club Staff dashboard',
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -299,7 +312,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Attendance marking',
+                          Text('Attendance Marking',
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 4),
                           Text(
@@ -324,7 +337,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
             const SizedBox(height: 16),
             const SectionHeader(
-                title: 'Attendance Status',
+                title: 'Your Attendance Status',
                 subtitle: 'Latest 5 attendance logs'),
             const SizedBox(height: 12),
             if (_loadingAttendance)

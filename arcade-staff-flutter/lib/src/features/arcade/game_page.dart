@@ -89,7 +89,7 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
       if (!mounted) return;
       setState(() {
         _wallet = wallet == null ? null : Map<String, dynamic>.from(wallet);
-        _recent = recent;
+        _recent = recent.take(6).toList();
       });
       if (wallet == null) {
         ScaffoldMessenger.of(context)
@@ -112,6 +112,44 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
     if (value == null || value.trim().isEmpty) return;
     _codeCtrl.text = value.trim();
     await _lookup(value);
+  }
+
+  Widget _checkinStatusLine(String? status) {
+    final raw = (status ?? '-').toString();
+    final normalized = raw.toUpperCase();
+    Color bgColor;
+
+    if (normalized.contains('CHECKED')) {
+      bgColor = const Color(0xFF166534);
+    } else if (normalized.contains('REJECT')) {
+      bgColor = const Color(0xFF991B1B);
+    } else if (normalized.contains('NOT_CHECKED') ||
+        normalized.contains('PENDING')) {
+      bgColor = const Color(0xFFB45309);
+    } else {
+      bgColor = const Color(0xFF374151);
+    }
+
+    return Row(
+      children: [
+        const Text('Checkin: '),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            raw.replaceAll('_', ' '),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   List<num> _debitOptions() {
@@ -164,7 +202,9 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
         gameId.isEmpty ||
         amount == null ||
         amount <= 0 ||
-        _loading) return;
+        _loading) {
+      return;
+    }
 
     setState(() => _loading = true);
     try {
@@ -317,7 +357,8 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
                                 fontSize: 18, fontWeight: FontWeight.w700)),
                         const SizedBox(height: 8),
                         Text('Wallet: ${wallet['wallet_code'] ?? '-'}'),
-                        Text('Checkin: ${wallet['checkin_status'] ?? '-'}'),
+                        _checkinStatusLine(
+                            wallet['checkin_status']?.toString()),
                         Text('Tokens: ${wallet['balance'] ?? 0}'),
                         Text(
                             'Tickets: ${wallet['reward_points_balance'] ?? 0}'),

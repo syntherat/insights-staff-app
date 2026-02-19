@@ -31,6 +31,38 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return DateFormat('dd MMM yyyy, hh:mm a').format(value.toLocal());
   }
 
+  bool _isTruthy(dynamic value) {
+    if (value == true) return true;
+    if (value == null) return false;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final v = value.trim().toLowerCase();
+      return v == 'true' || v == 't' || v == '1' || v == 'yes';
+    }
+    return false;
+  }
+
+  Widget _statusPill(bool isPresent) {
+    final bg = isPresent ? const Color(0xFF166534) : const Color(0xFF991B1B);
+    final label = isPresent ? 'Present' : 'Absent';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -132,6 +164,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               (it) {
                 final checkinDate = _parseDate(it['checkin_date']);
                 final checkedAt = _parseDate(it['checked_in_at']);
+                final isPresent =
+                    checkedAt != null || _isTruthy(it['is_present']);
                 final dayText = checkinDate == null
                     ? '${it['checkin_date'] ?? '-'}'
                     : _fmtDate(checkinDate);
@@ -141,10 +175,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
                 return SurfaceCard(
                   child: ListTile(
-                    leading: const Icon(Icons.check_circle,
-                        color: Color(0xFFFF9B4A)),
+                    leading: Icon(
+                      isPresent ? Icons.check_circle : Icons.cancel,
+                      color: isPresent
+                          ? const Color.fromARGB(255, 0, 184, 46)
+                          : const Color(0xFFEF4444),
+                    ),
                     title: Text('${it['title'] ?? 'Staff Checkin'} • $dayText'),
-                    subtitle: Text('Marked at $markText'),
+                    subtitle: Text(
+                      isPresent ? 'Marked at $markText' : 'Not marked',
+                    ),
+                    trailing: _statusPill(isPresent),
                   ),
                 );
               },
