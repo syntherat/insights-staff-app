@@ -15,6 +15,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -56,21 +57,53 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.hub_outlined, size: 34, color: Color(0xFFFF9B4A)),
+                    Center(
+                      child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: Image.asset(
+                          clubLogoAsset,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.shield_outlined,
+                              size: 34,
+                              color: Color(0xFFFF9B4A)),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 10),
-                    const Text('Insights Staff', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                    const Text('Insights Club Staff',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 28, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
-                    Text('Club operations', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF97A1B2))),
+                    Text('Club operations login',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: const Color(0xFF97A1B2))),
                     const SizedBox(height: 18),
                     TextField(
                       controller: _usernameCtrl,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(labelText: 'Username'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _passwordCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: _obscurePassword,
+                      onSubmitted: (_) => _login(),
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
+                          icon: Icon(_obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     FilledButton(

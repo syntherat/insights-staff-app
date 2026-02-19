@@ -1,7 +1,7 @@
 name: insights_staff_app
 publish_to: "none"
 description: Insights Club staff app (Flutter) with Staff Checkin + Arcade modules
-version: 1.0.0+1
+version: 1.2.0+2
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -21,6 +21,28 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.4
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/insights_club_logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/images/insights_club_logo.png
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/images/insights_club_logo.png
+    background_color: "#0D0F14"
+    theme_color: "#FF7A1A"
+
+flutter_native_splash:
+  color: "#0D0F14"
+  image: assets/images/insights_club_logo.png
+  android: true
+  ios: false
+  web: true
