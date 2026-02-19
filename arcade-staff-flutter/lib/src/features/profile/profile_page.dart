@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/auth_store.dart';
 import '../../ui/widgets.dart';
@@ -14,6 +15,21 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   List<Map<String, dynamic>> _myCheckins = const [];
   bool _loading = false;
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    final raw = value.toString().trim();
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  String _fmtDate(DateTime value) {
+    return DateFormat('dd MMM yyyy').format(value);
+  }
+
+  String _fmtDateTime(DateTime value) {
+    return DateFormat('dd MMM yyyy, hh:mm a').format(value.toLocal());
+  }
 
   @override
   void initState() {
@@ -41,52 +57,71 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final s = session?.staff;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(title: const ClubAppBarTitle(title: 'My Profile')),
       body: AppBackdrop(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             SurfaceCard(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: const Color(0x22FF7A1A),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.person_outline,
-                        color: Color(0xFFFF9B4A)),
+                  Row(
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: const Color(0x22FF7A1A),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(Icons.person_outline,
+                            color: Color(0xFFFF9B4A), size: 28),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(s?.fullName ?? s?.username ?? '-',
+                                style: Theme.of(context).textTheme.titleLarge),
+                            const SizedBox(height: 3),
+                            Text(
+                              s?.email ?? '-',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: const Color(0xFF97A1B2)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(s?.fullName ?? s?.username ?? '-',
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 4),
-                        Text(
-                            'Role: ${s?.role ?? '-'} • Reg No: ${s?.access.staffRegNo ?? '-'}',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: const Color(0xFF97A1B2))),
-                        Text('Email: ${s?.email ?? '-'}',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: const Color(0xFF97A1B2))),
-                      ],
-                    ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Chip(
+                        avatar: const Icon(Icons.badge_outlined,
+                            size: 18, color: Color(0xFFFF9B4A)),
+                        label: Text('Role: ${s?.role ?? '-'}'),
+                      ),
+                      Chip(
+                        avatar: const Icon(Icons.confirmation_num_outlined,
+                            size: 18, color: Color(0xFFFF9B4A)),
+                        label: Text('Reg No: ${s?.access.staffRegNo ?? '-'}'),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-            const SectionHeader(title: 'My Staff Checkin History'),
+            const SectionHeader(
+                title: 'My Staff Checkin History',
+                subtitle: 'Recent attendance records'),
             const SizedBox(height: 8),
             if (_loading)
               const Padding(
@@ -94,18 +129,34 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 child: Center(child: CircularProgressIndicator()),
               ),
             ..._myCheckins.map(
-              (it) => SurfaceCard(
-                child: ListTile(
-                  title: Text(
-                      '${it['staff_name'] ?? s?.fullName ?? s?.username ?? '-'} · ${it['checkin_date']}'),
-                  subtitle: Text(
-                      '${it['title'] ?? 'Staff Checkin'} • Marked at ${it['checked_in_at']}'),
-                ),
-              ),
+              (it) {
+                final checkinDate = _parseDate(it['checkin_date']);
+                final checkedAt = _parseDate(it['checked_in_at']);
+                final dayText = checkinDate == null
+                    ? '${it['checkin_date'] ?? '-'}'
+                    : _fmtDate(checkinDate);
+                final markText = checkedAt == null
+                    ? '${it['checked_in_at'] ?? '-'}'
+                    : _fmtDateTime(checkedAt);
+
+                return SurfaceCard(
+                  child: ListTile(
+                    leading: const Icon(Icons.check_circle,
+                        color: Color(0xFFFF9B4A)),
+                    title: Text('${it['title'] ?? 'Staff Checkin'} • $dayText'),
+                    subtitle: Text('Marked at $markText'),
+                  ),
+                );
+              },
             ),
             if (!_loading && _myCheckins.isEmpty)
               const SurfaceCard(
-                  child: ListTile(title: Text('No checkin records yet'))),
+                child: ListTile(
+                  title: Text('No checkin records yet'),
+                  subtitle: Text(
+                      'Your attendance entries will appear here once marked.'),
+                ),
+              ),
           ],
         ),
       ),

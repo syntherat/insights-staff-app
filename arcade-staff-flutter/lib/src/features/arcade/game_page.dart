@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/auth_store.dart';
 import '../shared/busy_overlay.dart';
@@ -57,7 +58,8 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load games: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Failed to load games: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -90,11 +92,13 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
         _recent = recent;
       });
       if (wallet == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wallet not found')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Wallet not found')));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lookup failed: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lookup failed: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -103,7 +107,7 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
   Future<void> _scan() async {
     final value = await showDialog<String>(
       context: context,
-      builder: (_) => const BarcodeScanDialog(title: 'Scan wallet barcode'),
+      builder: (_) => const BarcodeScanDialog(title: 'Scan wallet code'),
     );
     if (value == null || value.trim().isEmpty) return;
     _codeCtrl.text = value.trim();
@@ -135,15 +139,18 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
 
     setState(() => _loading = true);
     try {
-      await _arcade.debitTokens(walletId: walletId, gameId: gameId, amount: amount);
+      await _arcade.debitTokens(
+          walletId: walletId, gameId: gameId, amount: amount);
       await HapticFeedback.mediumImpact();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Debited $amount tokens')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Debited $amount tokens')));
       await _lookup();
     } catch (e) {
       await HapticFeedback.vibrate();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Debit failed: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Debit failed: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -153,7 +160,11 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
     final walletId = _wallet?['wallet_id']?.toString() ?? '';
     final gameId = _gameId ?? '';
     final amount = num.tryParse((preset['amount'] ?? '').toString());
-    if (walletId.isEmpty || gameId.isEmpty || amount == null || amount <= 0 || _loading) return;
+    if (walletId.isEmpty ||
+        gameId.isEmpty ||
+        amount == null ||
+        amount <= 0 ||
+        _loading) return;
 
     setState(() => _loading = true);
     try {
@@ -166,18 +177,23 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
       );
       await HapticFeedback.mediumImpact();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Credited $amount tickets')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Credited $amount tickets')));
       await _lookup();
     } catch (e) {
       await HapticFeedback.vibrate();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Reward failed: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Reward failed: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<bool> _confirm({required String title, required String message, required String confirmText}) async {
+  Future<bool> _confirm(
+      {required String title,
+      required String message,
+      required String confirmText}) async {
     if (_loading) return false;
     await HapticFeedback.selectionClick();
     final ok = await showDialog<bool>(
@@ -186,8 +202,12 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(confirmText)),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(confirmText)),
         ],
       ),
     );
@@ -224,108 +244,138 @@ class _ArcadeGamePageState extends ConsumerState<ArcadeGamePage> {
     final debitOptions = _debitOptions();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Arcade Game')),
+      appBar: AppBar(
+        title: const ClubAppBarTitle(title: 'Arcade Game'),
+        actions: [
+          IconButton(
+            onPressed: () => context.push('/profile'),
+            icon: const Icon(Icons.person_outline),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           AppBackdrop(
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-          const SectionHeader(title: 'Game Counter', subtitle: 'Temporary event module'),
-          const SizedBox(height: 8),
-          SurfaceCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-          DropdownButtonFormField<String>(
-            initialValue: _gameId,
-            items: _games
-                .map(
-                  (g) => DropdownMenuItem<String>(
-                    value: g['id']?.toString(),
-                    child: Text(g['name']?.toString() ?? '-'),
+                const SectionHeader(
+                    title: 'Game Counter', subtitle: 'Temporary event module'),
+                const SizedBox(height: 8),
+                SurfaceCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: _gameId,
+                        items: _games
+                            .map(
+                              (g) => DropdownMenuItem<String>(
+                                value: g['id']?.toString(),
+                                child: Text(g['name']?.toString() ?? '-'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) async {
+                          if (value == null) return;
+                          setState(() => _gameId = value);
+                          await _loadPresets(value);
+                        },
+                        decoration:
+                            const InputDecoration(labelText: 'Select game'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                          controller: _codeCtrl,
+                          decoration:
+                              const InputDecoration(labelText: 'Wallet code')),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 10,
+                        children: [
+                          FilledButton.icon(
+                              onPressed: _loading ? null : _lookup,
+                              icon: const Icon(Icons.search),
+                              label: const Text('Lookup')),
+                          OutlinedButton.icon(
+                              onPressed: _loading ? null : _scan,
+                              icon: const Icon(Icons.qr_code_scanner),
+                              label: const Text('Scan')),
+                        ],
+                      ),
+                    ],
                   ),
-                )
-                .toList(),
-            onChanged: (value) async {
-              if (value == null) return;
-              setState(() => _gameId = value);
-              await _loadPresets(value);
-            },
-            decoration: const InputDecoration(labelText: 'Select game'),
-          ),
-          const SizedBox(height: 12),
-          TextField(controller: _codeCtrl, decoration: const InputDecoration(labelText: 'Wallet code')),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            children: [
-              FilledButton.icon(onPressed: _loading ? null : _lookup, icon: const Icon(Icons.search), label: const Text('Lookup')),
-              OutlinedButton.icon(onPressed: _loading ? null : _scan, icon: const Icon(Icons.qr_code_scanner), label: const Text('Scan')),
-            ],
-          ),
-              ],
-            ),
-          ),
-          if (wallet != null) ...[
-            const SizedBox(height: 14),
-            SurfaceCard(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(wallet['name']?.toString() ?? '-', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Text('Wallet: ${wallet['wallet_code'] ?? '-'}'),
-                    Text('Checkin: ${wallet['checkin_status'] ?? '-'}'),
-                    Text('Tokens: ${wallet['balance'] ?? 0}'),
-                    Text('Tickets: ${wallet['reward_points_balance'] ?? 0}'),
-                  ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text('Debit tokens', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: debitOptions
-                  .map(
-                    (n) => FilledButton.tonal(
-                      onPressed: _loading ? null : () => _confirmDebit(n),
-                      child: Text('-$n'),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 12),
-            const Text('Reward tickets presets', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            if (_presets.isEmpty)
-              const Text('No active presets for this game', style: TextStyle(color: Colors.white70)),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _presets
-                  .map(
-                    (p) => FilledButton(
-                      onPressed: _loading ? null : () => _confirmReward(p),
-                      child: Text('+${p['amount']} ${p['label'] ?? 'TICKETS'}'),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
-          if (_recent.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            const Text('Recent transactions', style: TextStyle(fontWeight: FontWeight.w700)),
-            ..._recent.map(
-              (t) => SurfaceCard(
-                child: ListTile(
-                  title: Text('${t['type']} ${t['amount']} ${t['currency'] ?? ''}'),
-                  subtitle: Text('${t['reason'] ?? ''} • ${t['created_at'] ?? ''}'),
                 ),
-              ),
-            )
-          ]
+                if (wallet != null) ...[
+                  const SizedBox(height: 14),
+                  SurfaceCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(wallet['name']?.toString() ?? '-',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 8),
+                        Text('Wallet: ${wallet['wallet_code'] ?? '-'}'),
+                        Text('Checkin: ${wallet['checkin_status'] ?? '-'}'),
+                        Text('Tokens: ${wallet['balance'] ?? 0}'),
+                        Text(
+                            'Tickets: ${wallet['reward_points_balance'] ?? 0}'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Debit tokens',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: debitOptions
+                        .map(
+                          (n) => FilledButton.tonal(
+                            onPressed: _loading ? null : () => _confirmDebit(n),
+                            child: Text('-$n'),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Reward tickets presets',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  if (_presets.isEmpty)
+                    const Text('No active presets for this game',
+                        style: TextStyle(color: Colors.white70)),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _presets
+                        .map(
+                          (p) => FilledButton(
+                            onPressed:
+                                _loading ? null : () => _confirmReward(p),
+                            child: Text(
+                                '+${p['amount']} ${p['label'] ?? 'TICKETS'}'),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                if (_recent.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  const Text('Recent transactions',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  ..._recent.map(
+                    (t) => SurfaceCard(
+                      child: ListTile(
+                        title: Text(
+                            '${t['type']} ${t['amount']} ${t['currency'] ?? ''}'),
+                        subtitle: Text(
+                            '${t['reason'] ?? ''} • ${t['created_at'] ?? ''}'),
+                      ),
+                    ),
+                  )
+                ]
               ],
             ),
           ),

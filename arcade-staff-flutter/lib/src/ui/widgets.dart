@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+const clubLogoAsset = 'assets/images/insights_club_logo.png';
+
 class AppBackdrop extends StatelessWidget {
   const AppBackdrop({
     super.key,
@@ -18,7 +20,11 @@ class AppBackdrop extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF0B0D12), Color(0xFF0F121A), Color(0xFF0A0C11)],
+                colors: [
+                  Color(0xFF0B0D12),
+                  Color(0xFF0F121A),
+                  Color(0xFF0A0C11)
+                ],
               ),
             ),
           ),
@@ -61,7 +67,11 @@ class SectionHeader extends StatelessWidget {
         Text(title, style: Theme.of(context).textTheme.titleMedium),
         if (subtitle != null) ...[
           const SizedBox(height: 2),
-          Text(subtitle!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF97A1B2))),
+          Text(subtitle!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: const Color(0xFF97A1B2))),
         ]
       ],
     );
@@ -85,6 +95,42 @@ class SurfaceCard extends StatelessWidget {
         padding: padding,
         child: child,
       ),
+    );
+  }
+}
+
+class ClubAppBarTitle extends StatelessWidget {
+  const ClubAppBarTitle({
+    super.key,
+    required this.title,
+  });
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.asset(
+            clubLogoAsset,
+            width: 26,
+            height: 26,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                const Icon(Icons.shield_outlined, size: 22),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            title,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

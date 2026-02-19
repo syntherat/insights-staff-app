@@ -34,7 +34,6 @@ linked_service_cache/
 .env.*
 
 # Web
-lib/generated_plugin_registrant.dart
 
 # Coverage
 coverage/
