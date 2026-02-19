@@ -82,11 +82,11 @@ jobs:
           storeFile=../keystore/release.jks
           EOF
 
-      - name: Build universal release APK
+      - name: Build release APKs (split per ABI)
         working-directory: arcade-staff-flutter
-        run: flutter build apk --release --target-platform android-arm,android-arm64,android-x64
+        run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
 
-      - name: Prepare versioned APK filename
+      - name: Prepare versioned APK files
         id: prep_apk
         shell: bash
         run: |
@@ -96,10 +96,11 @@ jobs:
           else
             TAG="build-${GITHUB_RUN_NUMBER}"
           fi
-          OUT_FILE="insights-staff-${TAG}-universal.apk"
-          ARTIFACT_NAME="insights-staff-${TAG}-universal"
-          cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-release.apk "dist/${OUT_FILE}"
-          echo "apk_file=dist/${OUT_FILE}" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="insights-staff-${TAG}-apk-split"
+          cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "dist/insights-staff-${TAG}-armeabi-v7a.apk"
+          cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "dist/insights-staff-${TAG}-arm64-v8a.apk"
+          cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-x86_64-release.apk "dist/insights-staff-${TAG}-x86_64.apk"
+          echo "apk_files=dist/*.apk" >> "$GITHUB_OUTPUT"
           echo "artifact_name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve release metadata
@@ -123,7 +124,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.prep_apk.outputs.artifact_name }}
-          path: ${{ steps.prep_apk.outputs.apk_file }}
+          path: ${{ steps.prep_apk.outputs.apk_files }}
 
       - name: Resolve release notes file
         id: notes
@@ -145,7 +146,7 @@ jobs:
           name: ${{ steps.release_meta.outputs.name }}
           prerelease: ${{ steps.release_meta.outputs.prerelease }}
           target_commitish: ${{ github.sha }}
-          files: ${{ steps.prep_apk.outputs.apk_file }}
+          files: ${{ steps.prep_apk.outputs.apk_files }}
           generate_release_notes: false
           body_path: ${{ steps.notes.outputs.notes_file }}
 
@@ -157,5 +158,5 @@ jobs:
           name: ${{ steps.release_meta.outputs.name }}
           prerelease: ${{ steps.release_meta.outputs.prerelease }}
           target_commitish: ${{ github.sha }}
-          files: ${{ steps.prep_apk.outputs.apk_file }}
+          files: ${{ steps.prep_apk.outputs.apk_files }}
           generate_release_notes: true

@@ -30,6 +30,13 @@ class _ArcadeGatePageState extends ConsumerState<ArcadeGatePage> {
 
   ArcadeApi get _arcade => ArcadeApi(ref.read(apiClientProvider));
 
+  void _clearWalletView() {
+    setState(() {
+      _item = null;
+      _recent = const [];
+    });
+  }
+
   Future<void> _lookup([String? codeOverride]) async {
     final code = (codeOverride ?? _codeCtrl.text).trim();
     if (code.isEmpty || _loading) return;
@@ -250,9 +257,22 @@ class _ArcadeGatePageState extends ConsumerState<ArcadeGatePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item['name']?.toString() ?? '-',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 18)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item['name']?.toString() ?? '-',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 18),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: _loading ? null : _clearWalletView,
+                              icon: const Icon(Icons.close, size: 18),
+                              label: const Text('Close'),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
                         Text('Reg No: ${item['reg_no'] ?? '-'}'),
                         Text('Wallet: ${item['wallet_code'] ?? '-'}'),

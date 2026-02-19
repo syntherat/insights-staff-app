@@ -30,7 +30,24 @@ class _BarcodeScanDialogState extends State<BarcodeScanDialog>
   @override
   void initState() {
     super.initState();
-    _controller = MobileScannerController();
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      formats: const [
+        BarcodeFormat.qrCode,
+        BarcodeFormat.code128,
+        BarcodeFormat.code39,
+        BarcodeFormat.code93,
+        BarcodeFormat.codabar,
+        BarcodeFormat.ean13,
+        BarcodeFormat.ean8,
+        BarcodeFormat.upcA,
+        BarcodeFormat.upcE,
+        BarcodeFormat.itf,
+        BarcodeFormat.pdf417,
+        BarcodeFormat.aztec,
+        BarcodeFormat.dataMatrix,
+      ],
+    );
     _scanLineController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1700),
@@ -56,19 +73,25 @@ class _BarcodeScanDialogState extends State<BarcodeScanDialog>
             fit: BoxFit.cover,
             onDetect: (capture) async {
               if (_done || _processing) return;
-              final raw = capture.barcodes.firstOrNull?.rawValue;
-              if (raw == null || raw.trim().isEmpty) return;
+              final raw = capture.barcodes
+                  .map((b) => b.rawValue?.trim())
+                  .whereType<String>()
+                  .firstWhere(
+                    (value) => value.isNotEmpty,
+                    orElse: () => '',
+                  );
+              if (raw.isEmpty) return;
 
               if (!widget.continuousMode) {
                 _done = true;
-                Navigator.of(context).pop(raw.trim());
+                Navigator.of(context).pop(raw);
                 return;
               }
 
               // Continuous mode
               setState(() => _processing = true);
               try {
-                final result = await widget.onScan?.call(raw.trim());
+                final result = await widget.onScan?.call(raw);
                 if (!mounted) return;
                 setState(() {
                   _lastMessage = result ?? 'Scanned successfully';

@@ -27,6 +27,15 @@ class _ArcadePrizePageState extends ConsumerState<ArcadePrizePage> {
 
   ArcadeApi get _arcade => ArcadeApi(ref.read(apiClientProvider));
 
+  void _clearWalletView() {
+    setState(() {
+      _wallet = null;
+      _recent = const [];
+      _amountCtrl.clear();
+      _noteCtrl.clear();
+    });
+  }
+
   @override
   void dispose() {
     _codeCtrl.dispose();
@@ -230,9 +239,22 @@ class _ArcadePrizePageState extends ConsumerState<ArcadePrizePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(wallet['name']?.toString() ?? '-',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 18)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                wallet['name']?.toString() ?? '-',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 18),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: _loading ? null : _clearWalletView,
+                              icon: const Icon(Icons.close, size: 18),
+                              label: const Text('Close'),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
                         Text('Wallet: ${wallet['wallet_code'] ?? '-'}'),
                         _checkinStatusLine(
