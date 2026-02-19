@@ -47,7 +47,7 @@ function defaultsFromRole(role) {
   };
 }
 
-export async function resolveStaffAccess({ eventKey, staffId, role }) {
+export async function resolveStaffAccess({ staffId, role }) {
   const fallback = defaultsFromRole(role);
   if (!staffId) {
     return {
@@ -56,7 +56,7 @@ export async function resolveStaffAccess({ eventKey, staffId, role }) {
     };
   }
 
-  const { rows } = await pool.query(
+  const anyRows = await pool.query(
     `
     SELECT
       staff_reg_no,
@@ -66,13 +66,15 @@ export async function resolveStaffAccess({ eventKey, staffId, role }) {
       can_staff_checkin,
       can_manage_checkin_days
     FROM club_staff_app_access
-    WHERE event_key=$1 AND staff_id=$2
+    WHERE staff_id=$1
+    ORDER BY updated_at DESC, created_at DESC
     LIMIT 1;
     `,
-    [eventKey, staffId]
+    [staffId]
   );
 
-  const row = rows[0];
+  const row = anyRows.rows[0] || null;
+
   if (!row) {
     return {
       ...fallback,

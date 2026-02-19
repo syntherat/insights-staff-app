@@ -8,7 +8,7 @@ import * as C from "../models/staffCheckinModel.js";
 const r = Router();
 r.use(requireStaffJWT);
 
-const EVENT_KEY = process.env.EVENT_KEY;
+const ARCADE_EVENT_KEY = process.env.EVENT_KEY;
 
 // who am i
 r.get("/me", (req, res) => {
@@ -18,14 +18,13 @@ r.get("/me", (req, res) => {
 /* Permanent Staff Checkin */
 r.get("/staff-checkin/days", asyncHandler(async (req, res) => {
   const includeInactive = String(req.query.include_inactive || "").trim() === "1";
-  const items = await C.checkinDaysList({ eventKey: EVENT_KEY, includeInactive });
+  const items = await C.checkinDaysList({ includeInactive });
   res.json({ items });
 }));
 
 r.post("/staff-checkin/days", requireAccess("can_manage_checkin_days"), asyncHandler(async (req, res) => {
   const b = req.body || {};
   const item = await C.createCheckinDay({
-    eventKey: EVENT_KEY,
     checkinDate: b.checkin_date,
     title: b.title,
     note: b.note,
@@ -36,7 +35,6 @@ r.post("/staff-checkin/days", requireAccess("can_manage_checkin_days"), asyncHan
 
 r.patch("/staff-checkin/days/:id/active", requireAccess("can_manage_checkin_days"), asyncHandler(async (req, res) => {
   const item = await C.setCheckinDayActive({
-    eventKey: EVENT_KEY,
     dayId: req.params.id,
     isActive: !!req.body?.is_active,
   });
@@ -49,27 +47,26 @@ r.post("/staff-checkin/scan", requireAccess("can_staff_checkin"), asyncHandler(a
   const regNo = String(b.reg_no || "").trim().toUpperCase();
   if (!regNo) return res.status(400).json({ error: "reg_no required" });
 
-  const member = await C.findMemberByRegNo({ eventKey: EVENT_KEY, regNo });
+  const member = await C.findMemberByRegNo({ regNo });
   if (!member) {
     return res.status(400).json({ error: "Registration number not found in predefined member list" });
   }
 
   let day = null;
   if (b.day_id) {
-    day = await C.findDayById({ eventKey: EVENT_KEY, dayId: String(b.day_id) });
+    day = await C.findDayById({ dayId: String(b.day_id) });
   } else {
     // Use UTC midnight to match server's stored dates
     const now = new Date();
     const utcDateText = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     const dateText = String(b.checkin_date || utcDateText);
-    day = await C.findActiveDayByDate({ eventKey: EVENT_KEY, dateText });
+    day = await C.findActiveDayByDate({ dateText });
   }
 
   if (!day) return res.status(400).json({ error: "No active Staff Checkin day found" });
   if (!day.is_active) return res.status(400).json({ error: "Selected day is inactive" });
 
   const item = await C.scanStaffCheckin({
-    eventKey: EVENT_KEY,
     dayId: day.id,
     regNo,
     staffId: req.staff.staff_id,
@@ -81,7 +78,7 @@ r.post("/staff-checkin/scan", requireAccess("can_staff_checkin"), asyncHandler(a
 
 r.get("/staff-checkin/my", asyncHandler(async (req, res) => {
   const staffRegNo = req.staff?.access?.staff_reg_no || null;
-  const items = await C.myCheckins({ eventKey: EVENT_KEY, staffRegNo, limit: 180 });
+  const items = await C.myCheckins({ staffRegNo, limit: 180 });
   res.json({
     profile: {
       username: req.staff?.username || null,
@@ -93,9 +90,9 @@ r.get("/staff-checkin/my", asyncHandler(async (req, res) => {
 }));
 
 r.get("/staff-checkin/days/:id/checkins", requireAccess("can_manage_checkin_days"), asyncHandler(async (req, res) => {
-  const day = await C.findDayById({ eventKey: EVENT_KEY, dayId: req.params.id });
+  const day = await C.findDayById({ dayId: req.params.id });
   if (!day) return res.status(404).json({ error: "Day not found" });
-  const items = await C.dayCheckinsList({ eventKey: EVENT_KEY, dayId: day.id });
+  const items = await C.dayCheckinsList({ dayId: day.id });
   res.json({ day, items });
 }));
 
@@ -104,21 +101,21 @@ r.get("/wallets/lookup", asyncHandler(async (req, res) => {
   const code = String(req.query.code || "").trim();
   if (!code) return res.status(400).json({ error: "code required" });
 
-  const item = await M.walletLookupByCode({ eventKey: EVENT_KEY, code });
+  const item = await M.walletLookupByCode({ eventKey: ARCADE_EVENT_KEY, code });
   if (!item) return res.json({ item: null });
 
-  const recent = await M.walletRecentTxns({ eventKey: EVENT_KEY, walletId: item.wallet_id, limit: 3 });
+  const recent = await M.walletRecentTxns({ eventKey: ARCADE_EVENT_KEY, walletId: item.wallet_id, limit: 3 });
 
   // Fetch team members and exclude the scanned member if this wallet belongs to a member.
   let teamMembers = await M.getTeamMembers({ 
-    eventKey: EVENT_KEY, 
+    eventKey: ARCADE_EVENT_KEY, 
     regId: item.reg_id,
     excludeMemberId: item.member_id
   });
 
   // If a member wallet is scanned, add the primary registrant to the list.
   if (item.member_id) {
-    const primary = await M.getPrimaryRegistrant({ eventKey: EVENT_KEY, regId: item.reg_id });
+    const primary = await M.getPrimaryRegistrant({ eventKey: ARCADE_EVENT_KEY, regId: item.reg_id });
     if (primary) teamMembers = [primary, ...teamMembers];
   }
 
@@ -131,7 +128,7 @@ r.post("/checkin/approve", requireAccess("can_gate"), asyncHandler(async (req, r
   if (!regId) return res.status(400).json({ error: "reg_id required" });
 
   const item = await M.checkinApprove({
-    eventKey: EVENT_KEY,
+    eventKey: ARCADE_EVENT_KEY,
     regId,
     staffId: req.staff.staff_id,
     staffUsername: req.staff.username,
@@ -147,7 +144,7 @@ r.post("/checkin/reject", requireAccess("can_gate"), asyncHandler(async (req, re
   const reason = String(req.body?.reason || "").trim();
 
   const item = await M.checkinReject({
-    eventKey: EVENT_KEY,
+    eventKey: ARCADE_EVENT_KEY,
     regId,
     staffId: req.staff.staff_id,
     staffUsername: req.staff.username,
@@ -159,13 +156,13 @@ r.post("/checkin/reject", requireAccess("can_gate"), asyncHandler(async (req, re
 
 /* Games + presets (GAME staff) */
 r.get("/games", requireAccess("can_game"), asyncHandler(async (_req, res) => {
-  const items = await M.gamesActiveList({ eventKey: EVENT_KEY });
+  const items = await M.gamesActiveList({ eventKey: ARCADE_EVENT_KEY });
   res.json({ items });
 }));
 
 r.get("/games/:gameId/presets", requireAccess("can_game"), asyncHandler(async (req, res) => {
   const gameId = req.params.gameId;
-  const items = await M.presetsActiveByGame({ eventKey: EVENT_KEY, gameId });
+  const items = await M.presetsActiveByGame({ eventKey: ARCADE_EVENT_KEY, gameId });
   res.json({ items });
 }));
 
@@ -180,7 +177,7 @@ r.post("/txns/debit", requireAccess("can_game"), asyncHandler(async (req, res) =
   const note = b.note ? String(b.note).trim() : null;
 
   const item = await M.staffTxnApply({
-    eventKey: EVENT_KEY,
+    eventKey: ARCADE_EVENT_KEY,
     walletId,
     type: "DEBIT",
     amount,
@@ -209,7 +206,7 @@ r.post("/txns/reward", requireAccess("can_game"), asyncHandler(async (req, res) 
   const note = b.note ? String(b.note).trim() : null;
 
   const item = await M.staffTxnApply({
-    eventKey: EVENT_KEY,
+    eventKey: ARCADE_EVENT_KEY,
     walletId,
     type: "CREDIT",
     amount,
@@ -236,7 +233,7 @@ r.post("/txns/prize-redeem", requireAccess("can_prize"), asyncHandler(async (req
   const note = b.note ? String(b.note).trim() : null;
 
   const item = await M.staffTxnApply({
-    eventKey: EVENT_KEY,
+    eventKey: ARCADE_EVENT_KEY,
     walletId,
     type: "DEBIT",
     amount,
@@ -266,7 +263,7 @@ r.post("/txns/credit", requireAccess("can_game"), asyncHandler(async (req, res) 
   const note = b.note ? String(b.note).trim() : null;
 
   const item = await M.staffTxnApply({
-    eventKey: EVENT_KEY,
+    eventKey: ARCADE_EVENT_KEY,
     walletId,
     type: "CREDIT",
     amount,

@@ -7,13 +7,17 @@ import { signStaffToken } from "../utils/jwt.js";
 const r = Router();
 
 r.post("/login", asyncHandler(async (req, res) => {
-  const eventKey = process.env.EVENT_KEY;
+  const arcadeEventKey = process.env.EVENT_KEY;
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
 
   if (!username || !password) return res.status(400).json({ error: "username and password required" });
 
-  const staff = await findStaffByUsername({ eventKey, username });
+  const staff = await findStaffByUsername({
+    preferEventKey: arcadeEventKey,
+    username,
+    allowAnyEventFallback: true,
+  });
   if (!staff) return res.status(401).json({ error: "Invalid credentials" });
   if (!staff.is_active) return res.status(403).json({ error: "Staff inactive" });
 
@@ -21,7 +25,6 @@ r.post("/login", asyncHandler(async (req, res) => {
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
   const access = await resolveStaffAccess({
-    eventKey,
     staffId: staff.id,
     role: staff.role,
   });
