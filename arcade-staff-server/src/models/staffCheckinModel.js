@@ -125,21 +125,21 @@ export async function myCheckins({ staffRegNo, limit = 120 }) {
   const { rows } = await pool.query(
     `
     SELECT
-      c.id,
-      c.day_id,
-      c.staff_reg_no,
+      d.id AS day_id,
+      $1::text AS staff_reg_no,
       m.name AS staff_name,
       c.checked_in_at,
       c.checked_in_by_username,
       d.checkin_date,
       d.title,
-      d.note
-    FROM club_staff_checkins c
-    JOIN club_staff_checkin_days d ON d.id = c.day_id
+      d.note,
+      CASE WHEN c.id IS NULL THEN false ELSE true END AS is_present
+    FROM club_staff_checkin_days d
+    LEFT JOIN club_staff_checkins c
+      ON c.day_id = d.id AND c.staff_reg_no = $1
     LEFT JOIN club_staff_members m
-      ON m.reg_no = c.staff_reg_no
-    WHERE c.staff_reg_no=$1
-    ORDER BY d.checkin_date DESC, c.checked_in_at DESC
+      ON m.reg_no = $1
+    ORDER BY d.checkin_date DESC, c.checked_in_at DESC NULLS LAST
     LIMIT $2;
     `,
     [normalized, limit]
