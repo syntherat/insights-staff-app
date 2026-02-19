@@ -79,7 +79,7 @@ jobs:
           storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=keystore/release.jks
+          storeFile=../keystore/release.jks
           EOF
 
       - name: Build universal release APK
