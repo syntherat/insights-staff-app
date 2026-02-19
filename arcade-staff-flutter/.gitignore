@@ -33,6 +33,12 @@ linked_service_cache/
 .env
 .env.*
 
+# Android signing secrets
+android/key.properties
+android/keystore/
+android/keystore/*.jks
+android/keystore/*.jks.b64
+
 # Web
 
 # Coverage

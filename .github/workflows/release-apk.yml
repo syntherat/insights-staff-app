@@ -2,6 +2,8 @@ name: Build and Release APK
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -92,13 +94,30 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF_NAME}"
           else
-            TAG="manual-${GITHUB_RUN_NUMBER}"
+            TAG="build-${GITHUB_RUN_NUMBER}"
           fi
           OUT_FILE="insights-staff-${TAG}-universal.apk"
           ARTIFACT_NAME="insights-staff-${TAG}-universal"
           cp arcade-staff-flutter/build/app/outputs/flutter-apk/app-release.apk "dist/${OUT_FILE}"
           echo "apk_file=dist/${OUT_FILE}" >> "$GITHUB_OUTPUT"
           echo "artifact_name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release metadata
+        id: release_meta
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            NAME="${GITHUB_REF_NAME}"
+            PRERELEASE="false"
+          else
+            TAG="build-${GITHUB_RUN_NUMBER}"
+            NAME="Automated build ${GITHUB_RUN_NUMBER}"
+            PRERELEASE="true"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -108,10 +127,9 @@ jobs:
 
       - name: Resolve release notes file
         id: notes
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          NOTES_FILE=".github/release-notes/${GITHUB_REF_NAME}.md"
+          NOTES_FILE=".github/release-notes/${{ steps.release_meta.outputs.tag }}.md"
           if [[ -f "${NOTES_FILE}" ]]; then
             echo "has_notes=true" >> "$GITHUB_OUTPUT"
             echo "notes_file=${NOTES_FILE}" >> "$GITHUB_OUTPUT"
@@ -119,17 +137,25 @@ jobs:
             echo "has_notes=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish GitHub Release with custom notes (on tag)
-        if: startsWith(github.ref, 'refs/tags/') && steps.notes.outputs.has_notes == 'true'
+      - name: Publish GitHub Release with custom notes
+        if: steps.notes.outputs.has_notes == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          name: ${{ steps.release_meta.outputs.name }}
+          prerelease: ${{ steps.release_meta.outputs.prerelease }}
+          target_commitish: ${{ github.sha }}
           files: ${{ steps.prep_apk.outputs.apk_file }}
           generate_release_notes: false
           body_path: ${{ steps.notes.outputs.notes_file }}
 
       - name: Publish GitHub Release with generated notes (fallback)
-        if: startsWith(github.ref, 'refs/tags/') && steps.notes.outputs.has_notes != 'true'
+        if: steps.notes.outputs.has_notes != 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          name: ${{ steps.release_meta.outputs.name }}
+          prerelease: ${{ steps.release_meta.outputs.prerelease }}
+          target_commitish: ${{ github.sha }}
           files: ${{ steps.prep_apk.outputs.apk_file }}
           generate_release_notes: true
