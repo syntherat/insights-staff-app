@@ -18,10 +18,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/home',
     redirect: (context, state) {
       final loggedIn = auth != null;
-      final inLogin = state.fullPath == '/login';
+      final isLoginPath = state.matchedLocation == '/login';
 
-      if (!loggedIn && !inLogin) return '/login';
-      if (loggedIn && inLogin) return '/home';
+      if (!loggedIn && !isLoginPath) return '/login';
+      if (loggedIn && isLoginPath) return '/home';
       return null;
     },
     routes: [

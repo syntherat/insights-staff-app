@@ -60,6 +60,8 @@ class ApiClient {
 
   void setToken(String? token) => _token = token;
 
+  String? getToken() => _token;
+
   void setSessionHandlers({
     Future<void> Function(String token)? onSessionToken,
     Future<void> Function()? onUnauthorized,

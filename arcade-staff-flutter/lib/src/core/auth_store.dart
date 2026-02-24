@@ -23,6 +23,7 @@ final authControllerProvider =
 
 class AuthController extends StateNotifier<StaffSession?> {
   final ApiClient _api;
+  bool _isHydrating = false;
 
   AuthController(this._api) : super(null);
 
@@ -68,29 +69,54 @@ class AuthController extends StateNotifier<StaffSession?> {
   }
 
   Future<void> _handleUnauthorized() async {
-    if (state == null) return;
+    if (state == null || _isHydrating) return;
     await logout();
   }
 
   Future<void> hydrate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_sessionKey);
-    if (raw == null || raw.isEmpty) return;
-
+    _isHydrating = true;
     try {
-      final parsed = jsonDecode(raw) as Map<String, dynamic>;
-      final staff =
-          StaffUser.fromJson(Map<String, dynamic>.from(parsed['staff'] as Map));
-      final token = parsed['token']?.toString() ?? '';
-      if (token.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_sessionKey);
+      if (raw == null || raw.isEmpty) return;
 
-      _api.setToken(token);
-      state = StaffSession(token: token, staff: staff);
-      await refreshSessionOnAppOpen();
-    } catch (_) {
-      await prefs.remove(_sessionKey);
-      _api.setToken(null);
-      state = null;
+      try {
+        final parsed = jsonDecode(raw) as Map<String, dynamic>;
+        final staff = StaffUser.fromJson(
+            Map<String, dynamic>.from(parsed['staff'] as Map));
+        final token = parsed['token']?.toString() ?? '';
+        if (token.isEmpty) return;
+
+        // Set token temporarily for validation
+        _api.setToken(token);
+
+        // Validate session before restoring state
+        try {
+          await _api.getJson('/auth/session');
+          // Validation succeeded - use the current token from API client (may be rotated)
+          final validatedToken = _api.getToken() ?? token;
+          state = StaffSession(token: validatedToken, staff: staff);
+          // Persist with the validated/rotated token
+          if (validatedToken != token) {
+            await _persistSession(state!);
+          }
+        } on DioException catch (e) {
+          // Only clear on 401 (expired/invalid token), not on network errors
+          if (e.response?.statusCode == 401) {
+            _api.setToken(null);
+            await prefs.remove(_sessionKey);
+          } else {
+            // Network error or server error - keep session and try again later
+            state = StaffSession(token: token, staff: staff);
+          }
+        }
+      } catch (_) {
+        await prefs.remove(_sessionKey);
+        _api.setToken(null);
+        state = null;
+      }
+    } finally {
+      _isHydrating = false;
     }
   }
 
@@ -98,8 +124,8 @@ class AuthController extends StateNotifier<StaffSession?> {
     if (state == null) return;
     try {
       await _api.getJson('/auth/session');
-    } on DioException catch (_) {
-      // 401 is handled by ApiClient onUnauthorized callback (logout).
+    } catch (_) {
+      // Errors are handled by interceptor or hydrate already
       return;
     }
   }

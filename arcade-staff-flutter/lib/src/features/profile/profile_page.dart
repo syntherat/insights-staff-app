@@ -77,7 +77,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       final items = (data['items'] as List? ?? const [])
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
-      setState(() => _myCheckins = items);
+      if (mounted) setState(() => _myCheckins = items);
+    } catch (e) {
+      // If API call fails (e.g., 401), handle gracefully without crashing
+      // The 401 interceptor will handle logout if needed
+      if (mounted) setState(() => _myCheckins = const []);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
