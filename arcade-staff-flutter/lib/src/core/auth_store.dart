@@ -84,9 +84,24 @@ class AuthController extends StateNotifier<StaffSession?> {
       final token = parsed['token']?.toString() ?? '';
       if (token.isEmpty) return;
 
+      // Set token temporarily for validation
       _api.setToken(token);
-      state = StaffSession(token: token, staff: staff);
-      await refreshSessionOnAppOpen();
+
+      // Validate session before restoring state
+      try {
+        await _api.getJson('/auth/session');
+        // Only restore session if validation succeeds
+        state = StaffSession(token: token, staff: staff);
+      } on DioException catch (e) {
+        // Only clear on 401 (expired/invalid token), not on network errors
+        if (e.response?.statusCode == 401) {
+          _api.setToken(null);
+          await prefs.remove(_sessionKey);
+        } else {
+          // Network error or server error - keep session and try again later
+          state = StaffSession(token: token, staff: staff);
+        }
+      }
     } catch (_) {
       await prefs.remove(_sessionKey);
       _api.setToken(null);
@@ -98,8 +113,8 @@ class AuthController extends StateNotifier<StaffSession?> {
     if (state == null) return;
     try {
       await _api.getJson('/auth/session');
-    } on DioException catch (_) {
-      // 401 is handled by ApiClient onUnauthorized callback (logout).
+    } catch (_) {
+      // Errors are handled by interceptor or hydrate already
       return;
     }
   }
