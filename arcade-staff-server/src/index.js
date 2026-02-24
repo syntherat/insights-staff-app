@@ -11,7 +11,11 @@ dotenv.config();
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: false }));
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || "*",
+  credentials: false,
+  exposedHeaders: ["x-staff-session-token"],
+}));
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/", (_req, res) => res.json({ ok: true, service: "arcade-staff-server" }));

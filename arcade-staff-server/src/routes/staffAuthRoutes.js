@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { requireStaffJWT, STAFF_SESSION_TOKEN_HEADER } from "../middleware/staffAuth.js";
 import { findStaffByUsername, verifyStaffPassword } from "../models/staffModel.js";
 import { resolveStaffAccess } from "../models/staffAccessModel.js";
 import { signStaffToken } from "../utils/jwt.js";
@@ -46,6 +47,20 @@ r.post("/login", asyncHandler(async (req, res) => {
       full_name: staff.full_name || null,
       email: staff.email || null,
       access,
+    },
+  });
+}));
+
+r.get("/session", requireStaffJWT, asyncHandler(async (req, res) => {
+  res.json({
+    token: res.getHeader(STAFF_SESSION_TOKEN_HEADER) || null,
+    staff: {
+      id: req.staff.staff_id,
+      username: req.staff.username,
+      role: req.staff.role,
+      full_name: null,
+      email: null,
+      access: req.staff.access || {},
     },
   });
 }));
