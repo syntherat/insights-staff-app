@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,8 +13,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient();
 });
 
-final authControllerProvider = StateNotifierProvider<AuthController, StaffSession?>((ref) {
+final authControllerProvider =
+    StateNotifierProvider<AuthController, StaffSession?>((ref) {
   final controller = AuthController(ref.read(apiClientProvider));
+  controller.bindApiSessionHandlers();
   controller.hydrate();
   return controller;
 });
@@ -23,40 +26,20 @@ class AuthController extends StateNotifier<StaffSession?> {
 
   AuthController(this._api) : super(null);
 
-  Future<void> hydrate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_sessionKey);
-    if (raw == null || raw.isEmpty) return;
-
-    final parsed = jsonDecode(raw) as Map<String, dynamic>;
-    final staff = StaffUser.fromJson(Map<String, dynamic>.from(parsed['staff'] as Map));
-    final token = parsed['token']?.toString() ?? '';
-    if (token.isEmpty) return;
-
-    _api.setToken(token);
-    state = StaffSession(token: token, staff: staff);
+  void bindApiSessionHandlers() {
+    _api.setSessionHandlers(
+      onSessionToken: _handleRotatedToken,
+      onUnauthorized: _handleUnauthorized,
+    );
   }
 
-  Future<void> login({required String username, required String password}) async {
-    final data = await _api.postJson('/auth/login', {
-      'username': username,
-      'password': password,
-    });
-
-    final token = data['token']?.toString() ?? '';
-    if (token.isEmpty) {
-      throw Exception('No token returned');
-    }
-
-    final staff = StaffUser.fromJson(Map<String, dynamic>.from(data['staff'] as Map));
-    _api.setToken(token);
-    state = StaffSession(token: token, staff: staff);
-
+  Future<void> _persistSession(StaffSession session) async {
+    final staff = session.staff;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _sessionKey,
       jsonEncode({
-        'token': token,
+        'token': session.token,
         'staff': {
           'id': staff.id,
           'username': staff.username,
@@ -74,6 +57,71 @@ class AuthController extends StateNotifier<StaffSession?> {
         }
       }),
     );
+  }
+
+  Future<void> _handleRotatedToken(String token) async {
+    final current = state;
+    if (current == null || token.isEmpty || current.token == token) return;
+    final next = StaffSession(token: token, staff: current.staff);
+    state = next;
+    await _persistSession(next);
+  }
+
+  Future<void> _handleUnauthorized() async {
+    if (state == null) return;
+    await logout();
+  }
+
+  Future<void> hydrate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_sessionKey);
+    if (raw == null || raw.isEmpty) return;
+
+    try {
+      final parsed = jsonDecode(raw) as Map<String, dynamic>;
+      final staff =
+          StaffUser.fromJson(Map<String, dynamic>.from(parsed['staff'] as Map));
+      final token = parsed['token']?.toString() ?? '';
+      if (token.isEmpty) return;
+
+      _api.setToken(token);
+      state = StaffSession(token: token, staff: staff);
+      await refreshSessionOnAppOpen();
+    } catch (_) {
+      await prefs.remove(_sessionKey);
+      _api.setToken(null);
+      state = null;
+    }
+  }
+
+  Future<void> refreshSessionOnAppOpen() async {
+    if (state == null) return;
+    try {
+      await _api.getJson('/auth/session');
+    } on DioException catch (_) {
+      // 401 is handled by ApiClient onUnauthorized callback (logout).
+      return;
+    }
+  }
+
+  Future<void> login(
+      {required String username, required String password}) async {
+    final data = await _api.postJson('/auth/login', {
+      'username': username,
+      'password': password,
+    });
+
+    final token = data['token']?.toString() ?? '';
+    if (token.isEmpty) {
+      throw Exception('No token returned');
+    }
+
+    final staff =
+        StaffUser.fromJson(Map<String, dynamic>.from(data['staff'] as Map));
+    _api.setToken(token);
+    final session = StaffSession(token: token, staff: staff);
+    state = session;
+    await _persistSession(session);
   }
 
   Future<void> logout() async {

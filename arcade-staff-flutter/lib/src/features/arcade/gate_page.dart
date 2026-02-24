@@ -80,13 +80,14 @@ class _ArcadeGatePageState extends ConsumerState<ArcadeGatePage> {
     final normalized = raw.toUpperCase();
     Color bgColor;
 
-    if (normalized.contains('CHECKED')) {
-      bgColor = const Color(0xFF166534);
-    } else if (normalized.contains('REJECT')) {
+    if (normalized.contains('REJECT')) {
       bgColor = const Color(0xFF991B1B);
     } else if (normalized.contains('NOT_CHECKED') ||
         normalized.contains('PENDING')) {
-      bgColor = const Color(0xFFB45309);
+      bgColor = const Color(0xFFEAB308);
+    } else if (normalized.contains('APPROV') ||
+        normalized.contains('CHECKED')) {
+      bgColor = const Color(0xFF166534);
     } else {
       bgColor = const Color(0xFF374151);
     }
