@@ -12,12 +12,11 @@ import 'features/arcade/game_page.dart';
 import 'features/arcade/prize_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authControllerProvider);
+  final loggedIn = ref.watch(authControllerProvider.select((session) => session != null));
 
   return GoRouter(
     initialLocation: '/home',
     redirect: (context, state) {
-      final loggedIn = auth != null;
       final isLoginPath = state.matchedLocation == '/login';
 
       if (!loggedIn && !isLoginPath) return '/login';
