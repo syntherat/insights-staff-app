@@ -145,6 +145,13 @@ jobs:
         working-directory: arcade-staff-flutter
         run: flutter pub get
 
+      - name: Ensure iOS platform is configured
+        working-directory: arcade-staff-flutter
+        run: |
+          if [[ ! -d "ios" ]]; then
+            flutter create --platforms=ios .
+          fi
+
       - name: Build iOS app (no codesign)
         working-directory: arcade-staff-flutter
         run: flutter build ios --release --no-codesign
