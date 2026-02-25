@@ -1,4 +1,4 @@
-name: Build and Release Mobile
+name: Build and Release APK
 
 on:
   push:
@@ -126,67 +126,10 @@ jobs:
           name: ${{ steps.prep_apk.outputs.artifact_name }}
           path: ${{ steps.prep_apk.outputs.apk_files }}
 
-  build-ios:
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Flutter doctor
-        run: flutter doctor -v
-
-      - name: Flutter pub get
-        working-directory: arcade-staff-flutter
-        run: flutter pub get
-
-      - name: Ensure iOS platform is configured
-        working-directory: arcade-staff-flutter
-        run: |
-          if [[ ! -d "ios" ]]; then
-            flutter create --platforms=ios .
-          fi
-
-      - name: Build iOS app (no codesign)
-        working-directory: arcade-staff-flutter
-        run: flutter build ios --release --no-codesign
-
-      - name: Prepare versioned iOS artifact
-        id: prep_ios
-        shell: bash
-        run: |
-          mkdir -p dist
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF_NAME}"
-          else
-            TAG="build-${GITHUB_RUN_NUMBER}"
-          fi
-          APP_PATH="arcade-staff-flutter/build/ios/iphoneos/Runner.app"
-          if [[ ! -d "${APP_PATH}" ]]; then
-            echo "Runner.app not found at ${APP_PATH}" >&2
-            exit 1
-          fi
-          IOS_ZIP="dist/insights-staff-${TAG}-ios-runner.app.zip"
-          ditto -c -k --sequesterRsrc --keepParent "${APP_PATH}" "${IOS_ZIP}"
-          echo "ios_file=${IOS_ZIP}" >> "$GITHUB_OUTPUT"
-          echo "artifact_name=insights-staff-${TAG}-ios" >> "$GITHUB_OUTPUT"
-
-      - name: Upload iOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.prep_ios.outputs.artifact_name }}
-          path: ${{ steps.prep_ios.outputs.ios_file }}
-
   publish-release:
     runs-on: ubuntu-latest
     needs:
       - build-android
-      - build-ios
 
     steps:
       - name: Checkout
@@ -235,7 +178,7 @@ jobs:
         id: release_files
         shell: bash
         run: |
-          mapfile -t FILES < <(find dist -type f \( -name "*.apk" -o -name "*.zip" \) | sort)
+          mapfile -t FILES < <(find dist -type f -name "*.apk" | sort)
           if [[ ${#FILES[@]} -eq 0 ]]; then
             echo "No release files found" >&2
             exit 1
